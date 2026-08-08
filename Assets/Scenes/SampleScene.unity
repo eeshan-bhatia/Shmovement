@@ -635,10 +635,16 @@ MonoBehaviour:
   root: {fileID: 1964435930}
   walkSpeed: 20
   crouchSpeed: 7
+  walkResponse: 25
+  crouchResponse: 20
+  airSpeed: 15
+  airAcceleration: 100
   jumpSpeed: 20
+  jumpSustainGravity: 0.4
   gravity: -90
   standHeight: 2
   crouchHeight: 1
+  crouchHeightResponse: 15
   standCameraTargetHeight: 0.9
   crouchCameraTargetHeight: 0.7
 --- !u!114 &556796835
