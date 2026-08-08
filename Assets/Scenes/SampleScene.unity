@@ -632,9 +632,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerCharacter
   motor: {fileID: 556796835}
   cameraTarget: {fileID: 1240274275}
+  root: {fileID: 1964435930}
   walkSpeed: 20
+  crouchSpeed: 7
   jumpSpeed: 20
   gravity: -90
+  standHeight: 2
+  crouchHeight: 1
+  standCameraTargetHeight: 0.9
+  crouchCameraTargetHeight: 0.7
 --- !u!114 &556796835
 MonoBehaviour:
   m_ObjectHideFlags: 0
