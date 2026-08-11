@@ -17,6 +17,7 @@ public struct CharacterState
 {
     public bool Grounded;
     public Stance Stance;
+    public Vector3 Velocity;
 }
 public struct CharacterInput
 {
@@ -30,6 +31,7 @@ public struct CharacterInput
 
     public CrouchInput Crouch;
 }
+
 public class PlayerCharacter : MonoBehaviour, ICharacterController
 {
     [SerializeField] private KinematicCharacterMotor motor;
@@ -46,6 +48,7 @@ public class PlayerCharacter : MonoBehaviour, ICharacterController
     [SerializeField] private float airAcceleration = 70f;
     [Space]
     [SerializeField] private float jumpSpeed = 20f;
+    [SerializeField] private float coyoteTime = 0.2f;
     [Range(0f, 1f)]
     [SerializeField] private float jumpSustainGravity = 0.4f;
     [SerializeField] private float gravity = -90f;
@@ -73,6 +76,12 @@ public class PlayerCharacter : MonoBehaviour, ICharacterController
     private bool _requestedJump;
     private bool _requestedSustainedJump;
     private bool _requestedCrouch;
+    private bool _requestedCrouchInAir;
+
+    private float _timeSinceUngrounded;
+    private float _timeSinceJumpRequest;
+    private bool _ungroundedDueToJump;
+
     private Collider[] _uncrouchOverlapResults;
 
     public void Initialize()
@@ -91,15 +100,24 @@ public class PlayerCharacter : MonoBehaviour, ICharacterController
         _requestedMovement = Vector3.ClampMagnitude(_requestedMovement, 1f);
         _requestedMovement = input.Rotation * _requestedMovement;
 
+        var wasRequestingJump = _requestedJump;
         _requestedJump = _requestedJump || input.Jump;
+        if (_requestedJump && !wasRequestingJump)
+            _timeSinceJumpRequest = 0f;
+
         _requestedSustainedJump = input.JumpSustain;
 
+        var wasRequestingCrouch = _requestedCrouch;
         _requestedCrouch = input.Crouch switch
         {
             CrouchInput.Toggle => ! _requestedCrouch,
             CrouchInput.None => _requestedCrouch,
             _ => _requestedCrouch
         };
+        if (_requestedCrouch && !wasRequestingCrouch)
+            _requestedCrouchInAir = !_state.Grounded;
+        else if (!_requestedCrouch && wasRequestingCrouch)
+            _requestedCrouchInAir = false;
     }
 
     public void UpdateBody(float deltaTime)
@@ -132,6 +150,9 @@ public class PlayerCharacter : MonoBehaviour, ICharacterController
     {
         if (motor.GroundingStatus.IsStableOnGround)
         {
+            _timeSinceUngrounded = 0f;
+            _ungroundedDueToJump = false;
+
             var groundedMovement = motor.GetDirectionTangentToSurface
             (
                 direction: _requestedMovement,
@@ -148,7 +169,23 @@ public class PlayerCharacter : MonoBehaviour, ICharacterController
                 {
                     _state.Stance = Stance.Slide;
 
-                    var slideSpeed = Mathf.Max(slideStartSpeed, currentVelocity.magnitude);
+                    if (wasInAir)
+                    {
+                        currentVelocity = Vector3.ProjectOnPlane
+                        (
+                            vector: _lastState.Velocity,
+                            planeNormal: motor.GroundingStatus.GroundNormal
+                        );
+                    }
+
+                    var effectiveSlideStartSpeed = slideStartSpeed;
+                    if(!_lastState.Grounded && !_requestedCrouchInAir)
+                    {
+                        effectiveSlideStartSpeed = 0f;
+                        _requestedCrouchInAir = false;
+                    }
+
+                    var slideSpeed = Mathf.Max(effectiveSlideStartSpeed, currentVelocity.magnitude);
                     currentVelocity = motor.GetDirectionTangentToSurface
                     (
                         direction: currentVelocity,
@@ -203,6 +240,8 @@ public class PlayerCharacter : MonoBehaviour, ICharacterController
         }
         else
         {
+            _timeSinceUngrounded += deltaTime;
+
             if(_requestedMovement.sqrMagnitude > 0f)
             {
                 var planarMovement = Vector3.ProjectOnPlane
@@ -239,6 +278,24 @@ public class PlayerCharacter : MonoBehaviour, ICharacterController
                     movementForce = constrainedMovementForce;
                 }
 
+                if(motor.GroundingStatus.FoundAnyGround)
+                {
+                    if(Vector3.Dot(movementForce, currentVelocity + movementForce) > 0f)
+                    {
+                        var obstructionNormal = Vector3.Cross
+                        (
+                            motor.CharacterUp,
+                            Vector3.Cross
+                            (
+                                motor.CharacterUp,
+                                motor.GroundingStatus.GroundNormal
+                            )
+                        ).normalized;
+
+                        movementForce = Vector3.ProjectOnPlane(movementForce, obstructionNormal);
+                    }
+                }
+
                 currentVelocity += movementForce;
             }
             var effectiveGravity = gravity;
@@ -251,14 +308,29 @@ public class PlayerCharacter : MonoBehaviour, ICharacterController
 
         if (_requestedJump)
         {
-            _requestedJump = false;
-            _requestedCrouch = false;
+            var grounded = motor.GroundingStatus.IsStableOnGround;
+            var canCoyoteJump = _timeSinceUngrounded < coyoteTime && !_ungroundedDueToJump;
 
-            motor.ForceUnground(time: 0f);
+            if (grounded || canCoyoteJump)
+            {
+                _requestedJump = false;
+                _requestedCrouch = false;
+                _requestedCrouchInAir = false;
 
-            var currentVerticalSpeed = Vector3.Dot(currentVelocity, motor.CharacterUp);
-            var targetVerticalSpeed = Mathf.Max(currentVerticalSpeed, jumpSpeed);
-            currentVelocity += motor.CharacterUp * (targetVerticalSpeed - currentVerticalSpeed);
+                motor.ForceUnground(time: 0f);
+                _ungroundedDueToJump = true;
+
+                var currentVerticalSpeed = Vector3.Dot(currentVelocity, motor.CharacterUp);
+                var targetVerticalSpeed = Mathf.Max(currentVerticalSpeed, jumpSpeed);
+                currentVelocity += motor.CharacterUp * (targetVerticalSpeed - currentVerticalSpeed);
+            }
+            else
+            {
+                _timeSinceJumpRequest += deltaTime;
+
+                var canJumpLater = _timeSinceJumpRequest < coyoteTime;
+                _requestedJump = canJumpLater;
+            }
         }
     }
     public void UpdateRotation(ref Quaternion currentRotation, float deltaTime) 
@@ -323,6 +395,7 @@ public class PlayerCharacter : MonoBehaviour, ICharacterController
                 }
         }
         _state.Grounded = motor.GroundingStatus.IsStableOnGround;
+        _state.Velocity = motor.Velocity;
         _lastState = _tempState;
     }
 
