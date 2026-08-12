@@ -690,6 +690,8 @@ GameObject:
   - component: {fileID: 556796836}
   - component: {fileID: 556796835}
   - component: {fileID: 556796834}
+  - component: {fileID: 556796838}
+  - component: {fileID: 556796837}
   m_Layer: 0
   m_Name: Character
   m_TagString: Untagged
@@ -814,6 +816,41 @@ CapsuleCollider:
   m_Height: 2
   m_Direction: 1
   m_Center: {x: 0, y: 1, z: 0}
+--- !u!114 &556796837
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 556796832}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d3fe6b39191d6e6438ee8845070f8db7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Recall
+  motor: {fileID: 556796835}
+  recallDuration: 3
+  snapshotInterval: 0.05
+  recallKey: 19
+--- !u!114 &556796838
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 556796832}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 903eade151158954ab35edc334c15b73, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Blink
+  motor: {fileID: 556796835}
+  cameraTransform: {fileID: 1240274275}
+  blinkDistance: 10
+  maxCharges: 3
+  rechargeTime: 2
+  collisionPadding: 0.05
+  blinkKey: 51
 --- !u!1 &601803244
 GameObject:
   m_ObjectHideFlags: 0
